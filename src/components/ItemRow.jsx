@@ -15,7 +15,7 @@ export default function ItemRow({
   const [editNote, setEditNote] = useState(item.note ?? '')
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
-  const touchStartTime = useRef(null)
+  const longPressTimer = useRef(null)
   const nameInputRef = useRef(null)
   const DELETE_THRESHOLD = 72
   const LONGPRESS_MS = 500
@@ -35,36 +35,41 @@ export default function ItemRow({
     }
   }, [item.name, item.note, editing])
 
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+    setPressing(false)
+  }
+
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
-    touchStartTime.current = Date.now()
     setSwiping(true)
     setPressing(true)
+
+    // Fire edit mode exactly at 500ms while finger is still down
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null
+      setPressing(false)
+      setEditing(true)
+    }, LONGPRESS_MS)
   }
 
   function handleTouchMove(e) {
     if (touchStartX.current === null || editing) return
     const delta = e.touches[0].clientX - touchStartX.current
-    // Cancel press highlight once the finger moves enough to be a swipe
-    if (Math.abs(delta) > 8) setPressing(false)
+    // If finger moves enough to be a swipe, cancel the long-press
+    if (Math.abs(delta) > 8) cancelLongPress()
     setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, delta)))
   }
 
   function handleTouchEnd() {
     setSwiping(false)
-    setPressing(false)
-    const elapsed = Date.now() - (touchStartTime.current ?? 0)
-    const deltaX = Math.abs((touchStartX.current ?? 0) - (touchStartX.current ?? 0))
+    cancelLongPress()
 
-    // Long-press: held ≥ 500ms with minimal movement
-    if (elapsed >= LONGPRESS_MS && swipeX === 0 && !editing) {
-      setEditing(true)
-      touchStartX.current = null
-      return
-    }
-
-    // Swipe snap
+    // Swipe snap (long-press already handled by timer above)
     if (swipeX <= -DELETE_THRESHOLD / 2) {
       setSwipeX(-DELETE_THRESHOLD)
     } else {
@@ -125,8 +130,8 @@ export default function ItemRow({
       <div
         className={`relative flex items-center ${gap} px-4 ${py} transition-colors duration-75 ${pressing ? 'bg-slate-100 dark:bg-slate-700' : 'bg-white dark:bg-slate-800'}`}
         style={{
-          transform: editing ? 'none' : `translateX(${swipeX}px)`,
-          transition: swiping ? 'none' : 'transform 0.2s ease',
+          transform: editing ? 'none' : `translateX(${swipeX}px) scale(${pressing ? 0.985 : 1})`,
+          transition: swiping ? 'none' : pressing ? `transform ${LONGPRESS_MS}ms ease-out` : 'transform 0.2s ease',
         }}
         onTouchStart={editing ? undefined : handleTouchStart}
         onTouchMove={editing ? undefined : handleTouchMove}
