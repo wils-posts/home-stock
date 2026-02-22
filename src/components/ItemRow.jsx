@@ -9,6 +9,7 @@ export default function ItemRow({
 }) {
   const [swipeX, setSwipeX] = useState(0)
   const [swiping, setSwiping] = useState(false)
+  const [pressing, setPressing] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(item.name)
   const [editNote, setEditNote] = useState(item.note ?? '')
@@ -39,16 +40,20 @@ export default function ItemRow({
     touchStartY.current = e.touches[0].clientY
     touchStartTime.current = Date.now()
     setSwiping(true)
+    setPressing(true)
   }
 
   function handleTouchMove(e) {
     if (touchStartX.current === null || editing) return
     const delta = e.touches[0].clientX - touchStartX.current
+    // Cancel press highlight once the finger moves enough to be a swipe
+    if (Math.abs(delta) > 8) setPressing(false)
     setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, delta)))
   }
 
   function handleTouchEnd() {
     setSwiping(false)
+    setPressing(false)
     const elapsed = Date.now() - (touchStartTime.current ?? 0)
     const deltaX = Math.abs((touchStartX.current ?? 0) - (touchStartX.current ?? 0))
 
@@ -118,7 +123,7 @@ export default function ItemRow({
 
       {/* Row content */}
       <div
-        className={`relative flex items-center ${gap} px-4 ${py} bg-white dark:bg-slate-800`}
+        className={`relative flex items-center ${gap} px-4 ${py} transition-colors duration-75 ${pressing ? 'bg-slate-100 dark:bg-slate-700' : 'bg-white dark:bg-slate-800'}`}
         style={{
           transform: editing ? 'none' : `translateX(${swipeX}px)`,
           transition: swiping ? 'none' : 'transform 0.2s ease',
