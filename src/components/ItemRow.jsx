@@ -19,9 +19,18 @@ export default function ItemRow({
   const touchStartY = useRef(null)
   const longPressTimer = useRef(null)
   const isScrolling = useRef(false)
+  const lastActionAt = useRef(0)       // cooldown: ignore taps within 400ms of last action
   const nameInputRef = useRef(null)
   const DELETE_THRESHOLD = 72
-  const LONGPRESS_MS = 500
+  const LONGPRESS_MS = 650            // bumped from 500ms — harder to trigger accidentally
+  const COOLDOWN_MS = 400
+
+  function isOnCooldown() {
+    return Date.now() - lastActionAt.current < COOLDOWN_MS
+  }
+  function markAction() {
+    lastActionAt.current = Date.now()
+  }
 
   // Auto-focus name input when entering edit mode
   useEffect(() => {
@@ -47,29 +56,28 @@ export default function ItemRow({
   }
 
   function handleTouchStart(e) {
+    if (isOnCooldown()) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     isScrolling.current = false
     setSwiping(true)
     setPressing(true)
 
-    // Fire edit mode exactly at 500ms while finger is still down
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null
       setPressing(false)
+      markAction()
       setEditing(true)
     }, LONGPRESS_MS)
   }
 
   function handleTouchMove(e) {
     if (touchStartX.current === null || editing) return
-    // If we already decided this is a scroll, do nothing
     if (isScrolling.current) return
 
     const deltaX = e.touches[0].clientX - touchStartX.current
     const deltaY = e.touches[0].clientY - touchStartY.current
 
-    // If vertical movement dominates, treat as scroll — cancel everything
     if (Math.abs(deltaY) > Math.abs(deltaX)) {
       isScrolling.current = true
       cancelLongPress()
@@ -77,7 +85,6 @@ export default function ItemRow({
       return
     }
 
-    // Horizontal swipe — cancel long-press once clearly moving sideways
     if (Math.abs(deltaX) > 10) cancelLongPress()
     setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, deltaX)))
   }
@@ -87,7 +94,6 @@ export default function ItemRow({
     isScrolling.current = false
     cancelLongPress()
 
-    // Swipe snap (long-press already handled by timer above)
     if (swipeX <= -DELETE_THRESHOLD / 2) {
       setSwipeX(-DELETE_THRESHOLD)
     } else {
@@ -96,8 +102,10 @@ export default function ItemRow({
     touchStartX.current = null
   }
 
-  function handleDelete() {
+  function handleDelete(e) {
+    e.preventDefault()
     setSwipeX(0)
+    markAction()
     onDelete(item.id)
   }
 
@@ -105,17 +113,55 @@ export default function ItemRow({
     if (swipeX !== 0) setSwipeX(0)
   }
 
-  function handleConfirmEdit() {
+  function handleConfirmEdit(e) {
+    e.preventDefault()
     const name = editName.trim()
     if (!name) return
+    markAction()
     onUpdate(item.id, { name, note: editNote.trim() || null })
     setEditing(false)
   }
 
-  function handleCancelEdit() {
+  function handleCancelEdit(e) {
+    e.preventDefault()
+    markAction()
     setEditName(item.name)
     setEditNote(item.note ?? '')
     setEditing(false)
+  }
+
+  function handlePillTap(e) {
+    e.preventDefault()
+    if (isOnCooldown() || swipeX !== 0) return
+    markAction()
+    setPickingState(p => !p)
+  }
+
+  function handlePinTap(e) {
+    e.preventDefault()
+    if (isOnCooldown() || swipeX !== 0) return
+    markAction()
+    onTogglePin(item.id)
+  }
+
+  function handleStateSelect(state) {
+    markAction()
+    setPickingState(false)
+    if (state !== item.state) onCycleState(item.id, state)
+  }
+
+  function handleMoveUp(e) {
+    e.preventDefault()
+    if (isOnCooldown()) return
+    markAction()
+    onMoveUp()
+  }
+
+  function handleMoveDown(e) {
+    e.preventDefault()
+    if (isOnCooldown()) return
+    markAction()
+    onMoveDown()
   }
 
   const py = compact ? 'py-1' : 'py-2'
@@ -130,6 +176,7 @@ export default function ItemRow({
       {!editing && (
         <div className="absolute right-0 top-0 bottom-0 w-[72px] flex items-center justify-center bg-need">
           <button
+            onTouchEnd={handleDelete}
             onClick={handleDelete}
             className="w-full h-full flex items-center justify-center"
             aria-label="Delete item"
@@ -165,7 +212,7 @@ export default function ItemRow({
                 type="text"
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleConfirmEdit(); if (e.key === 'Escape') handleCancelEdit() }}
+                onKeyDown={e => { if (e.key === 'Enter') handleConfirmEdit(e); if (e.key === 'Escape') handleCancelEdit(e) }}
                 className={`w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 ${nameSize}`}
                 placeholder="Item name"
               />
@@ -173,13 +220,14 @@ export default function ItemRow({
                 type="text"
                 value={editNote}
                 onChange={e => setEditNote(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleConfirmEdit(); if (e.key === 'Escape') handleCancelEdit() }}
+                onKeyDown={e => { if (e.key === 'Enter') handleConfirmEdit(e); if (e.key === 'Escape') handleCancelEdit(e) }}
                 className={`w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300 ${noteSize}`}
                 placeholder="Add a note…"
               />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button
+                onTouchEnd={handleConfirmEdit}
                 onClick={handleConfirmEdit}
                 className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-ok text-white active:scale-95 transition-transform"
                 aria-label="Confirm edit"
@@ -189,6 +237,7 @@ export default function ItemRow({
                 </svg>
               </button>
               <button
+                onTouchEnd={handleCancelEdit}
                 onClick={handleCancelEdit}
                 className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 active:scale-95 transition-transform"
                 aria-label="Cancel edit"
@@ -205,18 +254,16 @@ export default function ItemRow({
             <div className="flex flex-col items-start shrink-0">
               <StatePill
                 state={item.state}
-                onClick={() => { if (swipeX === 0) setPickingState(p => !p) }}
+                onTouchEnd={handlePillTap}
+                onClick={handlePillTap}
                 disabled={pending}
                 compact={compact}
               />
               {pickingState && (
                 <StatePickerPopover
                   current={item.state}
-                  onSelect={state => {
-                    setPickingState(false)
-                    if (state !== item.state) onCycleState(item.id, state)
-                  }}
-                  onClose={() => setPickingState(false)}
+                  onSelect={handleStateSelect}
+                  onClose={() => { markAction(); setPickingState(false) }}
                 />
               )}
             </div>
@@ -231,7 +278,8 @@ export default function ItemRow({
             {showReorder && (
               <div className="flex flex-col gap-0.5 shrink-0">
                 <button
-                  onClick={onMoveUp}
+                  onTouchEnd={onMoveUp ? handleMoveUp : undefined}
+                  onClick={onMoveUp ? handleMoveUp : undefined}
                   disabled={isFirst}
                   className="min-w-[28px] min-h-[22px] flex items-center justify-center text-slate-400 dark:text-slate-500 disabled:opacity-25 active:scale-95 transition-transform"
                   aria-label="Move up"
@@ -241,7 +289,8 @@ export default function ItemRow({
                   </svg>
                 </button>
                 <button
-                  onClick={onMoveDown}
+                  onTouchEnd={onMoveDown ? handleMoveDown : undefined}
+                  onClick={onMoveDown ? handleMoveDown : undefined}
                   disabled={isLast}
                   className="min-w-[28px] min-h-[22px] flex items-center justify-center text-slate-400 dark:text-slate-500 disabled:opacity-25 active:scale-95 transition-transform"
                   aria-label="Move down"
@@ -253,7 +302,11 @@ export default function ItemRow({
               </div>
             )}
 
-            <PinButton pinned={item.pinned} onClick={() => { if (swipeX === 0) onTogglePin(item.id) }} />
+            <PinButton
+              pinned={item.pinned}
+              onTouchEnd={handlePinTap}
+              onClick={handlePinTap}
+            />
           </>
         )}
       </div>

@@ -1,6 +1,7 @@
-export default function PinButton({ pinned, onClick }) {
+export default function PinButton({ pinned, onTouchEnd, onClick }) {
   return (
     <button
+      onTouchEnd={onTouchEnd}
       onClick={onClick}
       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 dark:text-slate-500 active:scale-95 transition-transform"
       aria-label={pinned ? 'Unpin item' : 'Pin item'}

@@ -1,12 +1,13 @@
 import { STATE_LABELS, STATE_COLORS } from '../lib/constants'
 
-export default function StatePill({ state, onClick, disabled, compact }) {
+export default function StatePill({ state, onTouchEnd, onClick, disabled, compact }) {
   const size = compact
     ? 'min-w-[40px] min-h-[40px] text-xs px-2'
     : 'min-w-[48px] min-h-[48px] text-sm px-3'
 
   return (
     <button
+      onTouchEnd={onTouchEnd}
       onClick={onClick}
       disabled={disabled}
       className={`

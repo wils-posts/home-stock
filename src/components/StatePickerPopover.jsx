@@ -3,13 +3,25 @@ import { STATE_LABELS, STATE_COLORS } from '../lib/constants'
 const STATES = ['NEED', 'LOW', 'OK']
 
 export default function StatePickerPopover({ current, onSelect, onClose }) {
+  function handleOverlay(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    onClose()
+  }
+
+  function handleSelect(e, state) {
+    e.preventDefault()
+    e.stopPropagation()
+    onSelect(state)
+  }
+
   return (
     <>
-      {/* Fullscreen overlay — absorbs the outside tap so it doesn't hit any other row */}
+      {/* Fullscreen overlay — absorbs outside taps completely */}
       <div
         className="fixed inset-0 z-10"
-        onTouchStart={e => { e.stopPropagation(); onClose() }}
-        onClick={onClose}
+        onTouchEnd={handleOverlay}
+        onClick={handleOverlay}
       />
 
       {/* Picker buttons — above the overlay */}
@@ -19,8 +31,8 @@ export default function StatePickerPopover({ current, onSelect, onClose }) {
           return (
             <button
               key={state}
-              onTouchEnd={e => { e.stopPropagation(); onSelect(state) }}
-              onClick={e => { e.stopPropagation(); onSelect(state) }}
+              onTouchEnd={e => handleSelect(e, state)}
+              onClick={e => handleSelect(e, state)}
               className={`
                 min-w-[48px] min-h-[40px] px-3 rounded-full text-sm font-semibold
                 flex items-center justify-center shrink-0 transition-all duration-100
