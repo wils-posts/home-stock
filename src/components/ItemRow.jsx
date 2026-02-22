@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import StatePill from './StatePill'
 import PinButton from './PinButton'
+import StatePickerPopover from './StatePickerPopover'
 
 export default function ItemRow({
   item, onCycleState, onTogglePin, onDelete, onUpdate,
@@ -11,6 +12,7 @@ export default function ItemRow({
   const [swiping, setSwiping] = useState(false)
   const [pressing, setPressing] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [pickingState, setPickingState] = useState(false)
   const [editName, setEditName] = useState(item.name)
   const [editNote, setEditNote] = useState(item.note ?? '')
   const touchStartX = useRef(null)
@@ -200,12 +202,24 @@ export default function ItemRow({
         ) : (
           /* Normal display mode */
           <>
-            <StatePill
-              state={item.state}
-              onClick={() => { if (swipeX === 0) onCycleState(item.id) }}
-              disabled={pending}
-              compact={compact}
-            />
+            <div className="flex flex-col items-start shrink-0">
+              <StatePill
+                state={item.state}
+                onClick={() => { if (swipeX === 0) setPickingState(p => !p) }}
+                disabled={pending}
+                compact={compact}
+              />
+              {pickingState && (
+                <StatePickerPopover
+                  current={item.state}
+                  onSelect={state => {
+                    setPickingState(false)
+                    if (state !== item.state) onCycleState(item.id, state)
+                  }}
+                  onClose={() => setPickingState(false)}
+                />
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <p className={`font-medium text-slate-800 dark:text-slate-100 truncate ${nameSize}`}>{item.name}</p>
               {item.note && (

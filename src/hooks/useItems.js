@@ -47,10 +47,10 @@ export function useItems(showToast) {
     setPendingIds(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
-  async function cycleState(id) {
+  async function cycleState(id, targetState) {
     const item = localItems.find(i => i.id === id)
     if (!item) return
-    const next = getNextState(item.state)
+    const next = targetState ?? getNextState(item.state)
 
     addPending(id)
     setLocalItems(prev => prev.map(i => i.id === id ? { ...i, state: next } : i))
