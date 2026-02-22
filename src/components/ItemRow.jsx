@@ -56,7 +56,8 @@ export default function ItemRow({
   }
 
   function handleTouchStart(e) {
-    if (isOnCooldown()) return
+    // Don't start any row interaction while the state popover is open
+    if (isOnCooldown() || pickingState) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     isScrolling.current = false
@@ -85,8 +86,16 @@ export default function ItemRow({
       return
     }
 
+    // Cancel long-press once clearly swiping
     if (Math.abs(deltaX) > 10) cancelLongPress()
-    setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, deltaX)))
+
+    // Only start moving the row after a 20px dead zone — reduces accidental reveals
+    const SWIPE_DEADZONE = 20
+    if (Math.abs(deltaX) < SWIPE_DEADZONE) return
+    const effectiveDelta = deltaX < 0
+      ? deltaX + SWIPE_DEADZONE   // shift left swipe: starts from 0 after deadzone
+      : deltaX - SWIPE_DEADZONE
+    setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, effectiveDelta)))
   }
 
   function handleTouchEnd() {
@@ -94,7 +103,8 @@ export default function ItemRow({
     isScrolling.current = false
     cancelLongPress()
 
-    if (swipeX <= -DELETE_THRESHOLD / 2) {
+    // Snap to fully open only if past 75% — anything less springs back
+    if (swipeX <= -(DELETE_THRESHOLD * 0.75)) {
       setSwipeX(-DELETE_THRESHOLD)
     } else {
       setSwipeX(0)
