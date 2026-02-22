@@ -16,6 +16,7 @@ export default function ItemRow({
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const longPressTimer = useRef(null)
+  const isScrolling = useRef(false)
   const nameInputRef = useRef(null)
   const DELETE_THRESHOLD = 72
   const LONGPRESS_MS = 500
@@ -46,6 +47,7 @@ export default function ItemRow({
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
+    isScrolling.current = false
     setSwiping(true)
     setPressing(true)
 
@@ -59,14 +61,28 @@ export default function ItemRow({
 
   function handleTouchMove(e) {
     if (touchStartX.current === null || editing) return
-    const delta = e.touches[0].clientX - touchStartX.current
-    // If finger moves enough to be a swipe, cancel the long-press
-    if (Math.abs(delta) > 8) cancelLongPress()
-    setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, delta)))
+    // If we already decided this is a scroll, do nothing
+    if (isScrolling.current) return
+
+    const deltaX = e.touches[0].clientX - touchStartX.current
+    const deltaY = e.touches[0].clientY - touchStartY.current
+
+    // If vertical movement dominates, treat as scroll — cancel everything
+    if (Math.abs(deltaY) > Math.abs(deltaX)) {
+      isScrolling.current = true
+      cancelLongPress()
+      setSwipeX(0)
+      return
+    }
+
+    // Horizontal swipe — cancel long-press once clearly moving sideways
+    if (Math.abs(deltaX) > 10) cancelLongPress()
+    setSwipeX(Math.max(-DELETE_THRESHOLD, Math.min(0, deltaX)))
   }
 
   function handleTouchEnd() {
     setSwiping(false)
+    isScrolling.current = false
     cancelLongPress()
 
     // Swipe snap (long-press already handled by timer above)
