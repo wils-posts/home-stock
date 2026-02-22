@@ -110,5 +110,20 @@ export function useItems(showToast) {
     if (error) showToast(ERRORS.STATE_UPDATE)
   }
 
-  return { items, localItems, loading, pendingIds, cycleState, togglePin, addItem, markBought }
+  async function deleteItem(id) {
+    // Optimistically remove from local list
+    setLocalItems(prev => prev.filter(i => i.id !== id))
+
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      setLocalItems(itemsRef.current)
+      showToast(ERRORS.STATE_UPDATE)
+    }
+  }
+
+  return { items, localItems, loading, pendingIds, cycleState, togglePin, addItem, markBought, deleteItem }
 }
