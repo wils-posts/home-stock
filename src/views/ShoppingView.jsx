@@ -6,19 +6,42 @@ import { sortItems } from '../lib/itemUtils'
 import { STATE_COLORS, STATE_LABELS } from '../lib/constants'
 import ToastContainer from '../components/ToastContainer'
 
+const STORAGE_KEY = 'shoppingBoughtIds'
+
+function loadBoughtIds() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return saved ? new Set(JSON.parse(saved)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveBoughtIds(set) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]))
+}
+
 export default function ShoppingView() {
   const navigate = useNavigate()
   const { toasts, showToast } = useToast()
   const { localItems, loading, markBought } = useItems(showToast)
-  const [boughtIds, setBoughtIds] = useState(new Set())
+  const [boughtIds, setBoughtIds] = useState(loadBoughtIds)
 
   const sorted = sortItems(localItems)
   const shoppingItems = sorted.filter(i => i.pinned || i.state === 'NEED' || i.state === 'LOW')
   const activeItems = shoppingItems.filter(i => !boughtIds.has(i.id))
   const boughtItems = shoppingItems.filter(i => boughtIds.has(i.id))
 
-  function toggleBought(id) {
+  function updateBoughtIds(updater) {
     setBoughtIds(prev => {
+      const next = updater(prev)
+      saveBoughtIds(next)
+      return next
+    })
+  }
+
+  function toggleBought(id) {
+    updateBoughtIds(prev => {
       const s = new Set(prev)
       s.has(id) ? s.delete(id) : s.add(id)
       return s
@@ -28,10 +51,12 @@ export default function ShoppingView() {
   async function finishShop() {
     if (boughtIds.size === 0) return
     await markBought([...boughtIds])
+    localStorage.removeItem(STORAGE_KEY)
     navigate('/')
   }
 
   function cancelShop() {
+    localStorage.removeItem(STORAGE_KEY)
     navigate('/')
   }
 
@@ -55,7 +80,6 @@ export default function ShoppingView() {
           </div>
         ) : (
           <>
-            {/* Active shopping items */}
             {activeItems.length > 0 && (
               <div className="bg-white dark:bg-slate-800 mb-2">
                 {activeItems.map(item => (
@@ -69,7 +93,6 @@ export default function ShoppingView() {
               </div>
             )}
 
-            {/* Bought this trip */}
             {boughtItems.length > 0 && (
               <div className="mb-2">
                 <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800">
@@ -127,7 +150,6 @@ function ShoppingRow({ item, bought, onToggle }) {
       onClick={onToggle}
       className="w-full flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-700 last:border-b-0 text-left active:bg-slate-50 dark:active:bg-slate-700 transition-colors"
     >
-      {/* Checkbox */}
       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
         ${bought ? 'border-ok bg-ok' : 'border-slate-300 dark:border-slate-500'}`}
       >
@@ -138,7 +160,6 @@ function ShoppingRow({ item, bought, onToggle }) {
         )}
       </div>
 
-      {/* Name */}
       <div className="flex-1 min-w-0">
         <p className={`font-medium truncate ${bought ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
           {item.name}
@@ -148,7 +169,6 @@ function ShoppingRow({ item, bought, onToggle }) {
         )}
       </div>
 
-      {/* State badge */}
       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATE_COLORS[item.state] ?? ''}`}>
         {STATE_LABELS[item.state] ?? item.state}
       </span>

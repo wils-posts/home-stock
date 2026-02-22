@@ -111,7 +111,6 @@ export function useItems(showToast) {
   }
 
   async function deleteItem(id) {
-    // Optimistically remove from local list
     setLocalItems(prev => prev.filter(i => i.id !== id))
 
     const { error } = await supabase
@@ -125,5 +124,91 @@ export function useItems(showToast) {
     }
   }
 
-  return { items, localItems, loading, pendingIds, cycleState, togglePin, addItem, markBought, deleteItem }
+  async function updateItem(id, { name, note }) {
+    setLocalItems(prev => prev.map(i => i.id === id ? { ...i, name, note } : i))
+
+    const { error } = await supabase
+      .from('items')
+      .update({ name, note, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      setLocalItems(itemsRef.current)
+      showToast(ERRORS.STATE_UPDATE)
+    }
+  }
+
+  async function markAllOk(ids) {
+    setLocalItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, state: 'OK' } : i))
+
+    const { error } = await supabase
+      .from('items')
+      .update({ state: 'OK', updated_at: new Date().toISOString() })
+      .in('id', ids)
+
+    if (error) {
+      setLocalItems(itemsRef.current)
+      showToast(ERRORS.STATE_UPDATE)
+    }
+  }
+
+  async function movePinUp(id) {
+    const pinned = sortItems(localItems.filter(i => i.pinned))
+    const idx = pinned.findIndex(i => i.id === id)
+    if (idx <= 0) return
+
+    const a = pinned[idx]
+    const b = pinned[idx - 1]
+    const aOrder = b.pin_order
+    const bOrder = a.pin_order
+
+    setLocalItems(prev => prev.map(i => {
+      if (i.id === a.id) return { ...i, pin_order: aOrder }
+      if (i.id === b.id) return { ...i, pin_order: bOrder }
+      return i
+    }))
+
+    const [err1, err2] = await Promise.all([
+      supabase.from('items').update({ pin_order: aOrder, updated_at: new Date().toISOString() }).eq('id', a.id).then(r => r.error),
+      supabase.from('items').update({ pin_order: bOrder, updated_at: new Date().toISOString() }).eq('id', b.id).then(r => r.error),
+    ])
+
+    if (err1 || err2) {
+      setLocalItems(itemsRef.current)
+      showToast(ERRORS.STATE_UPDATE)
+    }
+  }
+
+  async function movePinDown(id) {
+    const pinned = sortItems(localItems.filter(i => i.pinned))
+    const idx = pinned.findIndex(i => i.id === id)
+    if (idx < 0 || idx >= pinned.length - 1) return
+
+    const a = pinned[idx]
+    const b = pinned[idx + 1]
+    const aOrder = b.pin_order
+    const bOrder = a.pin_order
+
+    setLocalItems(prev => prev.map(i => {
+      if (i.id === a.id) return { ...i, pin_order: aOrder }
+      if (i.id === b.id) return { ...i, pin_order: bOrder }
+      return i
+    }))
+
+    const [err1, err2] = await Promise.all([
+      supabase.from('items').update({ pin_order: aOrder, updated_at: new Date().toISOString() }).eq('id', a.id).then(r => r.error),
+      supabase.from('items').update({ pin_order: bOrder, updated_at: new Date().toISOString() }).eq('id', b.id).then(r => r.error),
+    ])
+
+    if (err1 || err2) {
+      setLocalItems(itemsRef.current)
+      showToast(ERRORS.STATE_UPDATE)
+    }
+  }
+
+  return {
+    items, localItems, loading, pendingIds,
+    cycleState, togglePin, addItem, markBought, deleteItem,
+    updateItem, markAllOk, movePinUp, movePinDown,
+  }
 }
