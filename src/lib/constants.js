@@ -21,6 +21,6 @@ export const STATE_COLORS = {
 export const SECTIONS = [
   { key: 'pinned', label: 'Pinned', defaultOpen: true },
   { key: 'need',   label: 'Need',   defaultOpen: true },
-  { key: 'low',    label: 'Low',    defaultOpen: false },
-  { key: 'ok',     label: 'OK',     defaultOpen: false },
+  { key: 'low',    label: 'Low',    defaultOpen: true },
+  { key: 'ok',     label: 'OK',     defaultOpen: true },
 ]
