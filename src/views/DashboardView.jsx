@@ -35,7 +35,7 @@ export default function DashboardView({ auth, dark, toggleDark }) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-        <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">Home Stock</h1>
+        <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">HomeStock</h1>
         <div className="flex items-center gap-1">
           {/* Compact toggle */}
           <button
